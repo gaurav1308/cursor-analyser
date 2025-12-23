@@ -198,6 +198,75 @@
   letter-spacing: 0.05em;
 }
 
+/* Trends Row */
+.trends-row {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 1rem;
+  margin-bottom: 2rem;
+}
+
+.trend-card {
+  background: linear-gradient(135deg, var(--bg-card) 0%, rgba(0, 245, 255, 0.03) 100%);
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  padding: 1.25rem;
+  transition: all 0.3s ease;
+}
+
+.trend-card:hover {
+  border-color: rgba(0, 245, 255, 0.3);
+  transform: translateY(-2px);
+}
+
+.trend-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.75rem;
+}
+
+.trend-label {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--text-secondary);
+}
+
+.trend-badge {
+  font-size: 0.65rem;
+  font-weight: 600;
+  padding: 0.2rem 0.5rem;
+  border-radius: 4px;
+}
+
+.trend-badge.positive {
+  background: rgba(0, 255, 136, 0.15);
+  color: var(--neon-green);
+}
+
+.trend-badge.negative {
+  background: rgba(255, 0, 128, 0.15);
+  color: var(--neon-pink);
+}
+
+.trend-icon {
+  color: var(--neon-cyan);
+}
+
+.trend-value {
+  font-family: var(--font-display);
+  font-size: 1.75rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-bottom: 0.25rem;
+}
+
+.trend-compare {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+}
+
 /* Charts Grid */
 .charts-grid {
   display: grid;
@@ -350,6 +419,10 @@
     grid-template-columns: repeat(2, 1fr);
   }
   
+  .trends-row {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  
   .charts-grid {
     grid-template-columns: repeat(2, 1fr);
   }
@@ -391,6 +464,7 @@
   
   .stats-row,
   .secondary-stats,
+  .trends-row,
   .charts-grid {
     grid-template-columns: 1fr;
   }

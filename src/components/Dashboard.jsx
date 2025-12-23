@@ -42,7 +42,8 @@ const itemVariants = {
 
 function Dashboard({ data, dataSource, onUploadClick }) {
   const { summary, dailyActivity, taskBreakdown, languageBreakdown, 
-          conversations, hourlyHeatmap, insights, streakDays, weeklyTrends } = data
+          conversations, hourlyHeatmap, insights, streakDays, 
+          trends, dayOfWeekBreakdown, monthlyTrends, topProjects } = data
 
   const [dateRange, setDateRange] = useState({
     start: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000),
@@ -201,8 +202,8 @@ function Dashboard({ data, dataSource, onUploadClick }) {
           <div className="mini-stat">
             <FolderOpen className="mini-stat-icon" />
             <div className="mini-stat-content">
-              <span className="mini-stat-value">{displaySummary.projectsAssisted}</span>
-              <span className="mini-stat-label">Projects Assisted</span>
+              <span className="mini-stat-value">{displaySummary.projectsAssisted || topProjects?.length || 0}</span>
+              <span className="mini-stat-label">Projects</span>
             </div>
           </div>
           <div className="mini-stat">
@@ -213,20 +214,60 @@ function Dashboard({ data, dataSource, onUploadClick }) {
             </div>
           </div>
           <div className="mini-stat">
-            <Activity className="mini-stat-icon" />
+            <Calendar className="mini-stat-icon" />
             <div className="mini-stat-content">
-              <span className="mini-stat-value">47%</span>
-              <span className="mini-stat-label">Faster Development</span>
+              <span className="mini-stat-value">{displaySummary.activeDays || streakDays}</span>
+              <span className="mini-stat-label">Active Days</span>
             </div>
           </div>
           <div className="mini-stat">
-            <TrendingUp className="mini-stat-icon" />
+            <Activity className="mini-stat-icon" />
             <div className="mini-stat-content">
-              <span className="mini-stat-value">3.2x</span>
-              <span className="mini-stat-label">Productivity Multiplier</span>
+              <span className="mini-stat-value">{displaySummary.avgPerDay || Math.round(displaySummary.totalConversations / (displaySummary.activeDays || 1))}</span>
+              <span className="mini-stat-label">Avg/Day</span>
             </div>
           </div>
         </motion.div>
+
+        {/* Trends Row */}
+        {trends && (
+          <motion.div className="trends-row" variants={itemVariants}>
+            <div className="trend-card">
+              <div className="trend-header">
+                <span className="trend-label">This Week</span>
+                <span className={`trend-badge ${trends.weekOverWeekGrowth >= 0 ? 'positive' : 'negative'}`}>
+                  {trends.weekOverWeekGrowth >= 0 ? '+' : ''}{trends.weekOverWeekGrowth}%
+                </span>
+              </div>
+              <div className="trend-value">{trends.thisWeek}</div>
+              <div className="trend-compare">vs {trends.lastWeek} last week</div>
+            </div>
+            <div className="trend-card">
+              <div className="trend-header">
+                <span className="trend-label">Peak Hour</span>
+                <Zap size={14} className="trend-icon" />
+              </div>
+              <div className="trend-value">{trends.peakHour}:00</div>
+              <div className="trend-compare">Most productive time</div>
+            </div>
+            <div className="trend-card">
+              <div className="trend-header">
+                <span className="trend-label">Best Day</span>
+                <Flame size={14} className="trend-icon" />
+              </div>
+              <div className="trend-value">{trends.bestDay}</div>
+              <div className="trend-compare">Most active day</div>
+            </div>
+            <div className="trend-card">
+              <div className="trend-header">
+                <span className="trend-label">Messages</span>
+                <MessageSquare size={14} className="trend-icon" />
+              </div>
+              <div className="trend-value">{(displaySummary.totalMessages || 0).toLocaleString()}</div>
+              <div className="trend-compare">Total chat messages</div>
+            </div>
+          </motion.div>
+        )}
 
         {/* Charts Grid */}
         <div className="charts-grid">
