@@ -52,31 +52,70 @@ if [ -f "$STATE_DB" ]; then
     echo "  📝 Chat messages: $TOTAL_MESSAGES" >&2
 fi
 
-# ===== DAILY ACTIVITY =====
+# ===== DAILY ACTIVITY (with mode breakdown and tokens) =====
 DAILY_DATA=""
 if [ -f "$STATE_DB" ]; then
-    DAILY_DATA=$(sqlite3 "$STATE_DB" "
+    # First get conversation data
+    CONV_DATA=$(sqlite3 "$STATE_DB" "
         SELECT 
             date(CAST(json_extract(value, '\$.createdAt') AS INTEGER)/1000, 'unixepoch') as date,
-            COUNT(*) as conversations
+            COUNT(*) as conversations,
+            SUM(CASE WHEN json_extract(value, '\$.unifiedMode') = 'agent' THEN 1 ELSE 0 END) as agentCount,
+            SUM(CASE WHEN json_extract(value, '\$.unifiedMode') = 'chat' THEN 1 ELSE 0 END) as chatCount
         FROM cursorDiskKV 
         WHERE key LIKE 'composerData%' 
         AND json_extract(value, '\$.createdAt') IS NOT NULL
         GROUP BY date
         ORDER BY date;
-    " 2>/dev/null | awk -F'|' '{printf "{\"date\":\"%s\",\"linesGenerated\":%d,\"conversations\":%s,\"timeSaved\":%d,\"codeAccepted\":85},", $1, $2*50, $2, $2*5}' | sed 's/,$//')
+    " 2>/dev/null)
+    
+    # Get daily token data from bubbles (using composer createdAt as reference)
+    # Create a temp file to store token data per composer
+    DAILY_DATA=$(sqlite3 "$STATE_DB" "
+        WITH composer_dates AS (
+            SELECT 
+                json_extract(value, '\$.composerId') as composerId,
+                date(CAST(json_extract(value, '\$.createdAt') AS INTEGER)/1000, 'unixepoch') as date,
+                json_extract(value, '\$.unifiedMode') as mode
+            FROM cursorDiskKV 
+            WHERE key LIKE 'composerData%' 
+            AND json_extract(value, '\$.createdAt') IS NOT NULL
+        ),
+        bubble_tokens AS (
+            SELECT 
+                substr(key, 10, 36) as composerId,
+                COALESCE(CAST(json_extract(value, '\$.tokenCount.inputTokens') AS INTEGER), 0) as inputTokens,
+                COALESCE(CAST(json_extract(value, '\$.tokenCount.outputTokens') AS INTEGER), 0) as outputTokens
+            FROM cursorDiskKV 
+            WHERE key LIKE 'bubbleId:%'
+        ),
+        daily_stats AS (
+            SELECT 
+                cd.date,
+                COUNT(DISTINCT cd.composerId) as conversations,
+                SUM(CASE WHEN cd.mode = 'agent' THEN 1 ELSE 0 END) as agentCount,
+                SUM(CASE WHEN cd.mode = 'chat' THEN 1 ELSE 0 END) as chatCount,
+                COALESCE(SUM(bt.inputTokens), 0) as inputTokens,
+                COALESCE(SUM(bt.outputTokens), 0) as outputTokens
+            FROM composer_dates cd
+            LEFT JOIN bubble_tokens bt ON cd.composerId = bt.composerId
+            GROUP BY cd.date
+        )
+        SELECT date, conversations, agentCount, chatCount, inputTokens, outputTokens
+        FROM daily_stats
+        ORDER BY date;
+    " 2>/dev/null | awk -F'|' '{printf "{\"date\":\"%s\",\"conversations\":%s,\"agentCount\":%s,\"chatCount\":%s,\"inputTokens\":%s,\"outputTokens\":%s},", $1, $2, $3, $4, $5, $6}' | sed 's/,$//')
 fi
 
 if [ -z "$DAILY_DATA" ] && [ -f "$AI_DB" ]; then
     DAILY_DATA=$(sqlite3 "$AI_DB" "
         SELECT 
             date(createdAt/1000, 'unixepoch') as date,
-            COUNT(*) as linesGenerated,
             COUNT(DISTINCT conversationId) as conversations
         FROM ai_code_hashes
         GROUP BY date
         ORDER BY date;
-    " | awk -F'|' '{printf "{\"date\":\"%s\",\"linesGenerated\":%s,\"conversations\":%s,\"timeSaved\":%d,\"codeAccepted\":85},", $1, $2, $3, int($2/30)}' | sed 's/,$//')
+    " | awk -F'|' '{printf "{\"date\":\"%s\",\"conversations\":%s,\"agentCount\":0,\"chatCount\":0,\"inputTokens\":0,\"outputTokens\":0},", $1, $2}' | sed 's/,$//')
 fi
 
 # ===== LANGUAGE BREAKDOWN =====
@@ -279,6 +318,41 @@ TOTAL_DAYS=$(sqlite3 "$STATE_DB" "
 
 AVG_PER_DAY=$((TOTAL_COMPOSERS / (TOTAL_DAYS > 0 ? TOTAL_DAYS : 1)))
 
+# ===== MODE BREAKDOWN (Agent vs Chat) =====
+AGENT_SESSIONS=0
+CHAT_SESSIONS=0
+if [ -f "$STATE_DB" ]; then
+    AGENT_SESSIONS=$(sqlite3 "$STATE_DB" "
+        SELECT COUNT(*) FROM cursorDiskKV 
+        WHERE key LIKE 'composerData%' 
+        AND json_extract(value, '\$.unifiedMode') = 'agent';
+    " 2>/dev/null || echo "0")
+    
+    CHAT_SESSIONS=$(sqlite3 "$STATE_DB" "
+        SELECT COUNT(*) FROM cursorDiskKV 
+        WHERE key LIKE 'composerData%' 
+        AND json_extract(value, '\$.unifiedMode') = 'chat';
+    " 2>/dev/null || echo "0")
+fi
+
+# ===== TOKEN USAGE =====
+INPUT_TOKENS=0
+OUTPUT_TOKENS=0
+if [ -f "$STATE_DB" ]; then
+    TOKEN_DATA=$(sqlite3 "$STATE_DB" "
+        SELECT 
+            COALESCE(SUM(CAST(json_extract(value, '\$.tokenCount.inputTokens') AS INTEGER)), 0),
+            COALESCE(SUM(CAST(json_extract(value, '\$.tokenCount.outputTokens') AS INTEGER)), 0)
+        FROM cursorDiskKV 
+        WHERE key LIKE 'bubbleId%' 
+        AND json_extract(value, '\$.tokenCount.inputTokens') IS NOT NULL;
+    " 2>/dev/null)
+    
+    INPUT_TOKENS=$(echo "$TOKEN_DATA" | cut -d'|' -f1)
+    OUTPUT_TOKENS=$(echo "$TOKEN_DATA" | cut -d'|' -f2)
+fi
+TOTAL_TOKENS=$((INPUT_TOKENS + OUTPUT_TOKENS))
+
 # ===== CALCULATE TOTALS =====
 TOTAL_CONVERSATIONS=$((TOTAL_COMPOSERS > 0 ? TOTAL_COMPOSERS : 3))
 TOTAL_LINES=$((TOTAL_CODE > 0 ? TOTAL_CODE : TOTAL_MESSAGES * 10))
@@ -290,12 +364,65 @@ UNIQUE_PROJECTS=$(sqlite3 "$AI_DB" "SELECT COUNT(DISTINCT substr(fileName, 1, 50
 FIRST_DATE="${COMPOSER_FIRST_DATE:-$CODE_FIRST_DATE}"
 LAST_DATE="${COMPOSER_LAST_DATE:-$CODE_LAST_DATE}"
 
-# Calculate streak days
-if [ -n "$FIRST_DATE" ]; then
-    FIRST_TS=$(date -j -f "%Y-%m-%d %H:%M:%S" "$FIRST_DATE" "+%s" 2>/dev/null || echo "0")
-    NOW_TS=$(date "+%s")
-    STREAK_DAYS=$(( (NOW_TS - FIRST_TS) / 86400 + 1 ))
-else
+# Get actual join date from telemetry
+JOIN_DATE=""
+DAYS_SINCE_JOIN=0
+if [ -f "$STATE_DB" ]; then
+    JOIN_DATE=$(sqlite3 "$STATE_DB" "SELECT value FROM ItemTable WHERE key = 'telemetry.firstSessionDate';" 2>/dev/null)
+    if [ -n "$JOIN_DATE" ]; then
+        # Convert to timestamp and calculate days
+        JOIN_TS=$(date -j -f "%a, %d %b %Y %H:%M:%S GMT" "$JOIN_DATE" "+%s" 2>/dev/null || echo "0")
+        NOW_TS=$(date "+%s")
+        if [ "$JOIN_TS" -gt 0 ]; then
+            DAYS_SINCE_JOIN=$(( (NOW_TS - JOIN_TS) / 86400 ))
+        fi
+    fi
+fi
+
+# Calculate actual longest consecutive streak from daily activity
+STREAK_DAYS=1
+if [ -f "$STATE_DB" ]; then
+    # Get all activity dates sorted
+    STREAK_DAYS=$(sqlite3 "$STATE_DB" "
+        WITH activity_dates AS (
+            SELECT DISTINCT date(CAST(json_extract(value, '\$.createdAt') AS INTEGER)/1000, 'unixepoch') as activity_date
+            FROM cursorDiskKV 
+            WHERE key LIKE 'composerData%' 
+            AND json_extract(value, '\$.createdAt') IS NOT NULL
+            ORDER BY activity_date
+        ),
+        date_with_prev AS (
+            SELECT 
+                activity_date,
+                LAG(activity_date) OVER (ORDER BY activity_date) as prev_date
+            FROM activity_dates
+        ),
+        streaks AS (
+            SELECT 
+                activity_date,
+                CASE 
+                    WHEN julianday(activity_date) - julianday(prev_date) = 1 THEN 0
+                    ELSE 1 
+                END as new_streak
+            FROM date_with_prev
+        ),
+        streak_groups AS (
+            SELECT 
+                activity_date,
+                SUM(new_streak) OVER (ORDER BY activity_date) as streak_group
+            FROM streaks
+        )
+        SELECT MAX(streak_length) FROM (
+            SELECT streak_group, COUNT(*) as streak_length
+            FROM streak_groups
+            GROUP BY streak_group
+        );
+    " 2>/dev/null || echo "1")
+fi
+
+# Ensure streak is at least 1
+STREAK_DAYS=${STREAK_DAYS:-1}
+if [ "$STREAK_DAYS" -lt 1 ]; then
     STREAK_DAYS=1
 fi
 
@@ -311,12 +438,9 @@ cat << EOF
 {
   "summary": {
     "totalConversations": $TOTAL_CONVERSATIONS,
-    "totalLinesGenerated": $TOTAL_LINES,
-    "totalTimeSaved": $TOTAL_TIME,
-    "avgAcceptance": 87,
+    "totalMessages": $TOTAL_MESSAGES,
     "projectsAssisted": ${UNIQUE_PROJECTS:-8},
     "filesModified": ${FILES_MODIFIED:-0},
-    "totalMessages": $TOTAL_MESSAGES,
     "activeDays": ${TOTAL_DAYS:-1},
     "avgPerDay": ${AVG_PER_DAY:-0}
   },
@@ -327,6 +451,17 @@ cat << EOF
     "peakHour": ${PEAK_HOUR:-14},
     "bestDay": "${BEST_DAY:-Wednesday}"
   },
+  "modeBreakdown": {
+    "agent": ${AGENT_SESSIONS:-0},
+    "chat": ${CHAT_SESSIONS:-0}
+  },
+  "tokenUsage": {
+    "inputTokens": ${INPUT_TOKENS:-0},
+    "outputTokens": ${OUTPUT_TOKENS:-0},
+    "totalTokens": ${TOTAL_TOKENS:-0}
+  },
+  "joinDate": "${JOIN_DATE:-Unknown}",
+  "daysSinceJoin": ${DAYS_SINCE_JOIN:-0},
   "trackingSince": "${FIRST_DATE:-Unknown}",
   "lastActivity": "${LAST_DATE:-Unknown}",
   "languageBreakdown": [${LANG_DATA:-}],

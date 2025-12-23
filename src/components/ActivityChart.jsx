@@ -2,7 +2,7 @@ import { useMemo } from 'react'
 import { motion } from 'framer-motion'
 import { 
   AreaChart, Area, XAxis, YAxis, CartesianGrid, 
-  Tooltip, ResponsiveContainer, ComposedChart
+  Tooltip, ResponsiveContainer, ComposedChart, Bar
 } from 'recharts'
 import { BarChart3 } from 'lucide-react'
 import './ActivityChart.css'
@@ -17,27 +17,27 @@ function ActivityChart({ data }) {
         month: 'short', 
         day: 'numeric' 
       }),
-      linesScaled: (d.linesGenerated || 0) / 20, // Scale for dual axis
     }))
   }, [data])
 
   const CustomTooltip = ({ active, payload, label }) => {
     if (active && payload && payload.length) {
+      const data = payload[0]?.payload
       return (
         <div className="activity-tooltip">
           <p className="tooltip-date">{label}</p>
           <div className="tooltip-stats">
             <div className="tooltip-stat cyan">
               <span className="tooltip-label">Conversations</span>
-              <span className="tooltip-value">{payload[0]?.value}</span>
-            </div>
-            <div className="tooltip-stat green">
-              <span className="tooltip-label">Lines Generated</span>
-              <span className="tooltip-value">{payload[1]?.value * 20}</span>
+              <span className="tooltip-value">{data?.conversations || 0}</span>
             </div>
             <div className="tooltip-stat purple">
-              <span className="tooltip-label">Time Saved</span>
-              <span className="tooltip-value">{payload[0]?.payload?.timeSaved} min</span>
+              <span className="tooltip-label">Agent Mode</span>
+              <span className="tooltip-value">{data?.agentCount || 0}</span>
+            </div>
+            <div className="tooltip-stat blue">
+              <span className="tooltip-label">Chat Mode</span>
+              <span className="tooltip-value">{data?.chatCount || 0}</span>
             </div>
           </div>
         </div>
@@ -77,10 +77,6 @@ function ActivityChart({ data }) {
               <stop offset="5%" stopColor="#00f5ff" stopOpacity={0.4}/>
               <stop offset="95%" stopColor="#00f5ff" stopOpacity={0}/>
             </linearGradient>
-            <linearGradient id="colorLines" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="5%" stopColor="#00ff88" stopOpacity={0.4}/>
-              <stop offset="95%" stopColor="#00ff88" stopOpacity={0}/>
-            </linearGradient>
           </defs>
           <CartesianGrid 
             strokeDasharray="3 3" 
@@ -103,6 +99,22 @@ function ActivityChart({ data }) {
             width={35}
           />
           <Tooltip content={<CustomTooltip />} />
+          <Bar
+            dataKey="agentCount"
+            stackId="mode"
+            fill="#a855f7"
+            radius={[0, 0, 0, 0]}
+            isAnimationActive={true}
+            animationDuration={800}
+          />
+          <Bar
+            dataKey="chatCount"
+            stackId="mode"
+            fill="#3b82f6"
+            radius={[4, 4, 0, 0]}
+            isAnimationActive={true}
+            animationDuration={800}
+          />
           <Area
             type="monotone"
             dataKey="conversations"
@@ -114,17 +126,6 @@ function ActivityChart({ data }) {
             animationDuration={800}
             animationEasing="ease-out"
           />
-          <Area
-            type="monotone"
-            dataKey="linesScaled"
-            stroke="#00ff88"
-            strokeWidth={2}
-            fillOpacity={1}
-            fill="url(#colorLines)"
-            isAnimationActive={true}
-            animationDuration={800}
-            animationEasing="ease-out"
-          />
         </ComposedChart>
       </ResponsiveContainer>
     </motion.div>
@@ -132,4 +133,3 @@ function ActivityChart({ data }) {
 }
 
 export default ActivityChart
-

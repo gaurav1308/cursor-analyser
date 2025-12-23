@@ -91,6 +91,37 @@
   color: var(--text-secondary);
 }
 
+.join-badge {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.5rem 1rem;
+  background: linear-gradient(135deg, rgba(0, 245, 255, 0.1), rgba(0, 255, 136, 0.08));
+  border: 1px solid rgba(0, 245, 255, 0.25);
+  border-radius: 100px;
+  cursor: help;
+}
+
+.join-icon {
+  width: 16px;
+  height: 16px;
+  color: var(--neon-cyan);
+}
+
+.join-count {
+  font-family: var(--font-display);
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--neon-cyan);
+}
+
+.join-label {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
 .streak-badge {
   display: flex;
   align-items: center;
@@ -99,6 +130,7 @@
   background: linear-gradient(135deg, rgba(255, 107, 0, 0.15), rgba(255, 0, 128, 0.1));
   border: 1px solid rgba(255, 107, 0, 0.3);
   border-radius: 100px;
+  cursor: help;
 }
 
 .streak-icon {
@@ -267,6 +299,50 @@
   color: var(--text-muted);
 }
 
+/* Mode & Token Row */
+.mode-token-row {
+  margin-top: 0.5rem;
+}
+
+.agent-card {
+  background: linear-gradient(135deg, var(--bg-card) 0%, rgba(138, 43, 226, 0.08) 100%);
+  border-color: rgba(138, 43, 226, 0.3);
+}
+
+.agent-card .trend-icon {
+  color: #a855f7;
+}
+
+.agent-card .trend-value {
+  color: #a855f7;
+}
+
+.chat-card {
+  background: linear-gradient(135deg, var(--bg-card) 0%, rgba(59, 130, 246, 0.08) 100%);
+  border-color: rgba(59, 130, 246, 0.3);
+}
+
+.chat-card .trend-icon {
+  color: #3b82f6;
+}
+
+.chat-card .trend-value {
+  color: #3b82f6;
+}
+
+.tokens-card {
+  background: linear-gradient(135deg, var(--bg-card) 0%, rgba(245, 158, 11, 0.08) 100%);
+  border-color: rgba(245, 158, 11, 0.3);
+}
+
+.tokens-card .trend-icon {
+  color: #f59e0b;
+}
+
+.tokens-card .trend-value {
+  color: #f59e0b;
+}
+
 /* Charts Grid */
 .charts-grid {
   display: grid;
@@ -376,6 +452,16 @@
 .legend-item.green .legend-dot {
   background: var(--neon-green);
   box-shadow: 0 0 8px var(--neon-green);
+}
+
+.legend-item.purple .legend-dot {
+  background: #a855f7;
+  box-shadow: 0 0 8px #a855f7;
+}
+
+.legend-item.blue .legend-dot {
+  background: #3b82f6;
+  box-shadow: 0 0 8px #3b82f6;
 }
 
 /* Footer */

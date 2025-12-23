@@ -83,7 +83,11 @@
 }
 
 .tooltip-stat.purple .tooltip-value {
-  color: var(--neon-purple);
+  color: #a855f7;
+}
+
+.tooltip-stat.blue .tooltip-value {
+  color: #3b82f6;
 }
 
 /* Recharts overrides */

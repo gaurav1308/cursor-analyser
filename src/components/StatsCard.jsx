@@ -2,23 +2,27 @@ import { motion } from 'framer-motion'
 import { TrendingUp, TrendingDown } from 'lucide-react'
 import './StatsCard.css'
 
-function StatsCard({ title, value, icon: Icon, color, trend, subtitle }) {
+function StatsCard({ title, value, icon: Icon, color, trend, subtitle, tooltip }) {
   const isPositive = trend >= 0
+  const showTrend = trend !== null && trend !== undefined
 
   return (
     <motion.div 
       className={`stats-card stats-card--${color}`}
       whileHover={{ scale: 1.02, y: -4 }}
       transition={{ type: 'spring', stiffness: 300 }}
+      title={tooltip}
     >
       <div className="stats-card-header">
         <div className={`stats-card-icon stats-card-icon--${color}`}>
           <Icon size={22} />
         </div>
-        <div className={`stats-card-trend ${isPositive ? 'positive' : 'negative'}`}>
-          {isPositive ? <TrendingUp size={14} /> : <TrendingDown size={14} />}
-          <span>{isPositive ? '+' : ''}{trend}%</span>
-        </div>
+        {showTrend && (
+          <div className={`stats-card-trend ${isPositive ? 'positive' : 'negative'}`}>
+            {isPositive ? <TrendingUp size={14} /> : <TrendingDown size={14} />}
+            <span>{isPositive ? '+' : ''}{trend}%</span>
+          </div>
+        )}
       </div>
       
       <div className="stats-card-body">
@@ -41,4 +45,3 @@ function StatsCard({ title, value, icon: Icon, color, trend, subtitle }) {
 }
 
 export default StatsCard
-

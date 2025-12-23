@@ -1,9 +1,9 @@
 import { useState, useMemo } from 'react'
 import { motion } from 'framer-motion'
 import { 
-  MessageSquare, Code, Clock, TrendingUp, 
-  Zap, Upload, Calendar, Flame, Target,
-  FileCode, FolderOpen, Activity
+  MessageSquare, Code, TrendingUp, 
+  Zap, Upload, Calendar, Flame,
+  FileCode, FolderOpen, Activity, Bot, MessageCircle, Coins
 } from 'lucide-react'
 import StatsCard from './StatsCard'
 import ActivityChart from './ActivityChart'
@@ -43,7 +43,8 @@ const itemVariants = {
 function Dashboard({ data, dataSource, onUploadClick }) {
   const { summary, dailyActivity, taskBreakdown, languageBreakdown, 
           conversations, hourlyHeatmap, insights, streakDays, 
-          trends, dayOfWeekBreakdown, monthlyTrends, topProjects } = data
+          trends, dayOfWeekBreakdown, monthlyTrends, topProjects,
+          modeBreakdown, tokenUsage, daysSinceJoin } = data
 
   const [dateRange, setDateRange] = useState({
     start: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000),
@@ -55,19 +56,67 @@ function Dashboard({ data, dataSource, onUploadClick }) {
   // Filter data based on date range
   const filteredData = useMemo(() => {
     if (!dailyActivity || dailyActivity.length === 0) {
-      return { dailyActivity: [], summary, trends: trends || {} }
+      return { 
+        dailyActivity: [], 
+        summary, 
+        trends: trends || {},
+        modeBreakdown: modeBreakdown || { agent: 0, chat: 0 },
+        tokenUsage: tokenUsage || { inputTokens: 0, outputTokens: 0, totalTokens: 0 }
+      }
     }
 
     // If "All time" selected (no start date), return all data
     if (!dateRange.start || dateRange.days === null) {
+      // Calculate all-time streak
+      let maxStreak = 0
+      let currentStreak = 0
+      const sortedDates = dailyActivity.map(d => new Date(d.date)).sort((a, b) => a - b)
+      for (let i = 0; i < sortedDates.length; i++) {
+        if (i === 0) {
+          currentStreak = 1
+        } else {
+          const diff = (sortedDates[i] - sortedDates[i-1]) / (1000 * 60 * 60 * 24)
+          if (diff === 1) {
+            currentStreak++
+          } else {
+            currentStreak = 1
+          }
+        }
+        maxStreak = Math.max(maxStreak, currentStreak)
+      }
+
+      const busiestDay = dailyActivity.reduce((max, d) => 
+        (d.conversations || 0) > (max.conversations || 0) ? d : max, 
+        { date: 'N/A', conversations: 0 }
+      )
+
+      // Calculate all-time mode breakdown from daily data
+      const allTimeAgentCount = dailyActivity.reduce((sum, d) => sum + (d.agentCount || 0), 0)
+      const allTimeChatCount = dailyActivity.reduce((sum, d) => sum + (d.chatCount || 0), 0)
+      
+      // Calculate all-time token usage from daily data
+      const allTimeInputTokens = dailyActivity.reduce((sum, d) => sum + (d.inputTokens || 0), 0)
+      const allTimeOutputTokens = dailyActivity.reduce((sum, d) => sum + (d.outputTokens || 0), 0)
+
       return { 
         dailyActivity, 
         summary: {
           ...summary,
           activeDays: dailyActivity.length,
           avgPerDay: Math.round(summary.totalConversations / dailyActivity.length) || 0,
+          maxStreak,
+          busiestDay,
         },
-        trends: trends || {}
+        trends: trends || {},
+        modeBreakdown: {
+          agent: allTimeAgentCount || modeBreakdown?.agent || 0,
+          chat: allTimeChatCount || modeBreakdown?.chat || 0,
+        },
+        tokenUsage: {
+          inputTokens: allTimeInputTokens || tokenUsage?.inputTokens || 0,
+          outputTokens: allTimeOutputTokens || tokenUsage?.outputTokens || 0,
+          totalTokens: (allTimeInputTokens + allTimeOutputTokens) || tokenUsage?.totalTokens || 0,
+        }
       }
     }
 
@@ -84,18 +133,58 @@ function Dashboard({ data, dataSource, onUploadClick }) {
 
     // Recalculate summary for filtered range
     const totalConversations = filtered.reduce((sum, d) => sum + (d.conversations || 0), 0)
-    const totalLinesGenerated = filtered.reduce((sum, d) => sum + (d.linesGenerated || 0), 0)
-    const totalTimeSaved = filtered.reduce((sum, d) => sum + (d.timeSaved || 0), 0)
     const activeDays = filtered.length
     const avgPerDay = activeDays > 0 ? Math.round(totalConversations / activeDays) : 0
+    
+    // Calculate mode breakdown from filtered data
+    const filteredAgentCount = filtered.reduce((sum, d) => sum + (d.agentCount || 0), 0)
+    const filteredChatCount = filtered.reduce((sum, d) => sum + (d.chatCount || 0), 0)
+    
+    // Calculate token usage from filtered data
+    const filteredInputTokens = filtered.reduce((sum, d) => sum + (d.inputTokens || 0), 0)
+    const filteredOutputTokens = filtered.reduce((sum, d) => sum + (d.outputTokens || 0), 0)
+    
+    // Estimate messages (avg ~10 messages per conversation)
+    const totalMessages = Math.round(totalConversations * 10)
+    
+    // Calculate streak (consecutive days) in filtered period
+    let maxStreak = 0
+    let currentStreak = 0
+    const sortedDates = filtered.map(d => new Date(d.date)).sort((a, b) => a - b)
+    for (let i = 0; i < sortedDates.length; i++) {
+      if (i === 0) {
+        currentStreak = 1
+      } else {
+        const diff = (sortedDates[i] - sortedDates[i-1]) / (1000 * 60 * 60 * 24)
+        if (diff === 1) {
+          currentStreak++
+        } else {
+          currentStreak = 1
+        }
+      }
+      maxStreak = Math.max(maxStreak, currentStreak)
+    }
+
+    // Find busiest day with count
+    const busiestDay = filtered.reduce((max, d) => 
+      (d.conversations || 0) > (max.conversations || 0) ? d : max, 
+      { date: 'N/A', conversations: 0 }
+    )
 
     const filteredSummary = {
       ...summary,
       totalConversations,
-      totalLinesGenerated,
-      totalTimeSaved,
+      totalMessages,
       activeDays,
       avgPerDay,
+      maxStreak,
+      busiestDay,
+    }
+
+    // Calculate filtered mode breakdown
+    const filteredModeBreakdown = {
+      agent: filteredAgentCount,
+      chat: filteredChatCount,
     }
 
     // Calculate trends for filtered period
@@ -125,16 +214,26 @@ function Dashboard({ data, dataSource, onUploadClick }) {
       bestDay,
     }
 
+    const filteredTokenUsage = {
+      inputTokens: filteredInputTokens,
+      outputTokens: filteredOutputTokens,
+      totalTokens: filteredInputTokens + filteredOutputTokens,
+    }
+
     return { 
       dailyActivity: filtered, 
       summary: filteredSummary,
       trends: filteredTrends,
+      modeBreakdown: filteredModeBreakdown,
+      tokenUsage: filteredTokenUsage,
     }
-  }, [dateRange, dailyActivity, summary, trends])
+  }, [dateRange, dailyActivity, summary, trends, modeBreakdown, tokenUsage])
 
   const displaySummary = filteredData.summary
   const displayDailyActivity = filteredData.dailyActivity
   const displayTrends = filteredData.trends
+  const displayModeBreakdown = filteredData.modeBreakdown || modeBreakdown
+  const displayTokenUsage = filteredData.tokenUsage || tokenUsage
 
   return (
     <div className="dashboard">
@@ -181,7 +280,15 @@ function Dashboard({ data, dataSource, onUploadClick }) {
             </div>
           )}
           
-          <div className="streak-badge">
+          {daysSinceJoin > 0 && (
+            <div className="join-badge" title="Days since you started using Cursor">
+              <Calendar className="join-icon" />
+              <span className="join-count">{daysSinceJoin}</span>
+              <span className="join-label">days</span>
+            </div>
+          )}
+          
+          <div className="streak-badge" title="Consecutive days with AI activity">
             <Flame className="streak-icon" />
             <span className="streak-count">{streakDays}</span>
             <span className="streak-label">day streak</span>
@@ -209,67 +316,71 @@ function Dashboard({ data, dataSource, onUploadClick }) {
         {/* Stats Row */}
         <motion.div className="stats-row" variants={itemVariants}>
           <StatsCard
-            title="Total Conversations"
+            title="Conversations"
             value={displaySummary.totalConversations.toLocaleString()}
             icon={MessageSquare}
             color="cyan"
-            trend={+15}
+            trend={null}
             subtitle={dateRange.label}
+            tooltip="Total AI conversations (Agent + Chat sessions) in the selected date range"
           />
           <StatsCard
-            title="Lines Generated"
-            value={displaySummary.totalLinesGenerated.toLocaleString()}
-            icon={Code}
+            title="Messages"
+            value={displaySummary.totalMessages?.toLocaleString() || '0'}
+            icon={MessageCircle}
             color="green"
-            trend={+23}
-            subtitle="of quality code"
+            trend={null}
+            subtitle={dateRange.label}
+            tooltip="Estimated total chat messages exchanged with AI in the selected period (~10 per conversation)"
           />
           <StatsCard
-            title="Hours Saved"
-            value={displaySummary.totalTimeSaved.toLocaleString()}
-            icon={Clock}
+            title="Active Days"
+            value={displaySummary.activeDays || 0}
+            icon={Calendar}
             color="purple"
-            trend={+18}
-            subtitle="productivity boost"
+            trend={null}
+            subtitle={`~${displaySummary.avgPerDay || 0}/day`}
+            tooltip="Number of days with at least one AI conversation in the selected period"
           />
           <StatsCard
-            title="Acceptance Rate"
-            value={`${displaySummary.avgAcceptance}%`}
-            icon={Target}
+            title="Best Streak"
+            value={`${displaySummary.maxStreak || 0} days`}
+            icon={Flame}
             color="orange"
-            trend={+5}
-            subtitle="code accepted"
+            trend={null}
+            subtitle="consecutive days"
+            tooltip="Longest streak of consecutive days with AI activity in the selected period"
           />
         </motion.div>
 
-        {/* Secondary Stats */}
+        {/* Secondary Stats - Cumulative Totals */}
         <motion.div className="secondary-stats" variants={itemVariants}>
-          <div className="mini-stat">
+          <div className="mini-stat" title="Total unique projects where AI assisted with code">
             <FolderOpen className="mini-stat-icon" />
             <div className="mini-stat-content">
-              <span className="mini-stat-value">{displaySummary.projectsAssisted || topProjects?.length || 0}</span>
+              <span className="mini-stat-value">{summary.projectsAssisted || topProjects?.length || 0}</span>
               <span className="mini-stat-label">Projects</span>
             </div>
           </div>
-          <div className="mini-stat">
+          <div className="mini-stat" title="Total files modified with AI assistance">
             <FileCode className="mini-stat-icon" />
             <div className="mini-stat-content">
-              <span className="mini-stat-value">{displaySummary.filesModified}</span>
-              <span className="mini-stat-label">Files Modified</span>
+              <span className="mini-stat-value">{summary.filesModified || 0}</span>
+              <span className="mini-stat-label">Files</span>
             </div>
           </div>
-          <div className="mini-stat">
-            <Calendar className="mini-stat-icon" />
+          <div className="mini-stat" title={`Tokens sent to AI (context + prompts) - ${dateRange.label}`}>
+            <Coins className="mini-stat-icon" />
             <div className="mini-stat-content">
-              <span className="mini-stat-value">{displaySummary.activeDays || streakDays}</span>
-              <span className="mini-stat-label">Active Days</span>
+              <span className="mini-stat-value">{((displayTokenUsage?.inputTokens || 0) / 1000000).toFixed(2)}M</span>
+              <span className="mini-stat-label">Input</span>
             </div>
           </div>
-          <div className="mini-stat">
-            <Activity className="mini-stat-icon" />
+          <div className="mini-stat" title={`Tokens generated by AI (responses + code) - ${dateRange.label}`}>
+            <Code className="mini-stat-icon" />
             <div className="mini-stat-content">
-              <span className="mini-stat-value">{displaySummary.avgPerDay || Math.round(displaySummary.totalConversations / (displaySummary.activeDays || 1))}</span>
-              <span className="mini-stat-label">Avg/Day</span>
+              <span className="mini-stat-value">{((displayTokenUsage?.outputTokens || 0) / 1000000).toFixed(2)}M</span>
+              <span className="mini-stat-label">Output</span>
             </div>
           </div>
         </motion.div>
@@ -277,7 +388,7 @@ function Dashboard({ data, dataSource, onUploadClick }) {
         {/* Trends Row */}
         {displayTrends && (
           <motion.div className="trends-row" variants={itemVariants}>
-            <div className="trend-card">
+            <div className="trend-card" title="Compares first half vs second half of selected period to show growth trend">
               <div className="trend-header">
                 <span className="trend-label">Period Trend</span>
                 <span className={`trend-badge ${displayTrends.weekOverWeekGrowth >= 0 ? 'positive' : 'negative'}`}>
@@ -287,7 +398,7 @@ function Dashboard({ data, dataSource, onUploadClick }) {
               <div className="trend-value">{displayTrends.thisWeek}</div>
               <div className="trend-compare">vs {displayTrends.lastWeek} prior period</div>
             </div>
-            <div className="trend-card">
+            <div className="trend-card" title="Hour of the day when you have the most AI conversations">
               <div className="trend-header">
                 <span className="trend-label">Peak Hour</span>
                 <Zap size={14} className="trend-icon" />
@@ -295,7 +406,7 @@ function Dashboard({ data, dataSource, onUploadClick }) {
               <div className="trend-value">{displayTrends.peakHour}:00</div>
               <div className="trend-compare">Most productive time</div>
             </div>
-            <div className="trend-card">
+            <div className="trend-card" title="Day of the week with highest AI activity in selected period">
               <div className="trend-header">
                 <span className="trend-label">Best Day</span>
                 <Flame size={14} className="trend-icon" />
@@ -303,13 +414,43 @@ function Dashboard({ data, dataSource, onUploadClick }) {
               <div className="trend-value">{displayTrends.bestDay}</div>
               <div className="trend-compare">Most active day</div>
             </div>
-            <div className="trend-card">
+            <div className="trend-card" title="Days with at least one AI conversation and average conversations per day">
               <div className="trend-header">
                 <span className="trend-label">Active Days</span>
                 <Calendar size={14} className="trend-icon" />
               </div>
               <div className="trend-value">{displaySummary.activeDays || 0}</div>
               <div className="trend-compare">~{displaySummary.avgPerDay || 0} conv/day</div>
+            </div>
+          </motion.div>
+        )}
+
+        {/* Mode Stats Row */}
+        {displayModeBreakdown && (
+          <motion.div className="trends-row mode-token-row" variants={itemVariants}>
+            <div className="trend-card agent-card" title="Agent mode: AI can execute code, run terminal commands, and make file changes autonomously">
+              <div className="trend-header">
+                <span className="trend-label">Agent Mode</span>
+                <Bot size={14} className="trend-icon" />
+              </div>
+              <div className="trend-value">{(displayModeBreakdown.agent || 0).toLocaleString()}</div>
+              <div className="trend-compare">
+                {displayModeBreakdown.agent + displayModeBreakdown.chat > 0 
+                  ? Math.round((displayModeBreakdown.agent / (displayModeBreakdown.agent + displayModeBreakdown.chat)) * 100)
+                  : 0}% of sessions • {dateRange.label}
+              </div>
+            </div>
+            <div className="trend-card chat-card" title="Chat mode: Conversational AI assistance for questions, explanations, and code suggestions">
+              <div className="trend-header">
+                <span className="trend-label">Chat Mode</span>
+                <MessageCircle size={14} className="trend-icon" />
+              </div>
+              <div className="trend-value">{(displayModeBreakdown.chat || 0).toLocaleString()}</div>
+              <div className="trend-compare">
+                {displayModeBreakdown.agent + displayModeBreakdown.chat > 0 
+                  ? Math.round((displayModeBreakdown.chat / (displayModeBreakdown.agent + displayModeBreakdown.chat)) * 100)
+                  : 0}% of sessions • {dateRange.label}
+              </div>
             </div>
           </motion.div>
         )}
@@ -328,11 +469,15 @@ function Dashboard({ data, dataSource, onUploadClick }) {
                 <div className="chart-legend">
                   <span className="legend-item cyan">
                     <span className="legend-dot"></span>
-                    Conversations
+                    Total
                   </span>
-                  <span className="legend-item green">
+                  <span className="legend-item purple">
                     <span className="legend-dot"></span>
-                    Lines Generated
+                    Agent
+                  </span>
+                  <span className="legend-item blue">
+                    <span className="legend-dot"></span>
+                    Chat
                   </span>
                 </div>
               </div>

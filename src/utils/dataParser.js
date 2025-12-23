@@ -114,43 +114,42 @@ export function transformRealData(data) {
     },
   ]
 
-  // Insights based on real data
+  // Insights based on real data only
   const insights = [
     { 
       type: 'positive',
-      message: `Generated ${(summary?.totalLinesGenerated || 0).toLocaleString()} lines of code with AI in just ${streakDays || 3} days!`,
+      message: `${(summary?.totalConversations || 0).toLocaleString()} AI conversations across ${summary?.activeDays || 0} active days`,
       icon: 'trending-up'
     },
     { 
-      type: 'positive',
-      message: `Saved approximately ${summary?.totalTimeSaved || 0} hours with AI assistance`,
-      icon: 'clock'
-    },
-    { 
       type: 'info',
-      message: `Most productive hours: 2 PM - 5 PM based on your activity`,
-      icon: 'zap'
+      message: `${(summary?.totalMessages || 0).toLocaleString()} messages exchanged with AI`,
+      icon: 'message-square'
     },
     { 
       type: 'positive',
       message: `Modified ${summary?.filesModified || 0} files across ${summary?.projectsAssisted || 1} projects`,
-      icon: 'lightbulb'
+      icon: 'folder'
+    },
+    { 
+      type: 'info',
+      message: `Average ${summary?.avgPerDay || 0} conversations per active day`,
+      icon: 'zap'
     },
   ]
 
   return {
     summary: {
       totalConversations: summary?.totalConversations || 0,
-      totalLinesGenerated: summary?.totalLinesGenerated || 0,
-      totalTimeSaved: summary?.totalTimeSaved || 0,
-      avgAcceptance: summary?.avgAcceptance || 85,
+      totalMessages: summary?.totalMessages || 0,
       projectsAssisted: summary?.projectsAssisted || 1,
       filesModified: summary?.filesModified || 0,
-      totalMessages: summary?.totalMessages || 0,
       activeDays: summary?.activeDays || 1,
       avgPerDay: summary?.avgPerDay || 0,
     },
     trends: data.trends || null,
+    modeBreakdown: data.modeBreakdown || null,
+    tokenUsage: data.tokenUsage || null,
     dailyActivity: dailyActivity || [],
     weeklyTrends: data.weeklyTrends || [],
     monthlyTrends: data.monthlyTrends || [],
@@ -163,6 +162,8 @@ export function transformRealData(data) {
     insights,
     streakDays: streakDays || 1,
     lastActive: data.lastActivity || new Date().toISOString(),
+    joinDate: data.joinDate || null,
+    daysSinceJoin: data.daysSinceJoin || 0,
   }
 }
 

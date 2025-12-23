@@ -19,7 +19,7 @@ function App() {
         if (response.ok) {
           const realData = await response.json()
           // Check if it has real data (not empty)
-          if (realData.summary && realData.summary.totalLinesGenerated > 0) {
+          if (realData.summary && realData.summary.totalConversations > 0) {
             setData(transformRealData(realData))
             setDataSource('real')
             setIsLoading(false)
