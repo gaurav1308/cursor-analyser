@@ -55,12 +55,20 @@ function Dashboard({ data, dataSource, onUploadClick }) {
   // Filter data based on date range
   const filteredData = useMemo(() => {
     if (!dailyActivity || dailyActivity.length === 0) {
-      return { dailyActivity: [], summary }
+      return { dailyActivity: [], summary, trends: trends || {} }
     }
 
     // If "All time" selected (no start date), return all data
     if (!dateRange.start || dateRange.days === null) {
-      return { dailyActivity, summary }
+      return { 
+        dailyActivity, 
+        summary: {
+          ...summary,
+          activeDays: dailyActivity.length,
+          avgPerDay: Math.round(summary.totalConversations / dailyActivity.length) || 0,
+        },
+        trends: trends || {}
+      }
     }
 
     const startDate = new Date(dateRange.start)
@@ -75,21 +83,58 @@ function Dashboard({ data, dataSource, onUploadClick }) {
     })
 
     // Recalculate summary for filtered range
+    const totalConversations = filtered.reduce((sum, d) => sum + (d.conversations || 0), 0)
+    const totalLinesGenerated = filtered.reduce((sum, d) => sum + (d.linesGenerated || 0), 0)
+    const totalTimeSaved = filtered.reduce((sum, d) => sum + (d.timeSaved || 0), 0)
+    const activeDays = filtered.length
+    const avgPerDay = activeDays > 0 ? Math.round(totalConversations / activeDays) : 0
+
     const filteredSummary = {
       ...summary,
-      totalConversations: filtered.reduce((sum, d) => sum + (d.conversations || 0), 0),
-      totalLinesGenerated: filtered.reduce((sum, d) => sum + (d.linesGenerated || 0), 0),
-      totalTimeSaved: filtered.reduce((sum, d) => sum + (d.timeSaved || 0), 0),
+      totalConversations,
+      totalLinesGenerated,
+      totalTimeSaved,
+      activeDays,
+      avgPerDay,
+    }
+
+    // Calculate trends for filtered period
+    const midPoint = new Date((startDate.getTime() + endDate.getTime()) / 2)
+    const firstHalf = filtered.filter(d => new Date(d.date) < midPoint)
+    const secondHalf = filtered.filter(d => new Date(d.date) >= midPoint)
+    
+    const firstHalfTotal = firstHalf.reduce((sum, d) => sum + (d.conversations || 0), 0)
+    const secondHalfTotal = secondHalf.reduce((sum, d) => sum + (d.conversations || 0), 0)
+    const periodGrowth = firstHalfTotal > 0 
+      ? Math.round(((secondHalfTotal - firstHalfTotal) / firstHalfTotal) * 100) 
+      : 0
+
+    // Find peak day in filtered range
+    const dayTotals = {}
+    filtered.forEach(d => {
+      const dayName = new Date(d.date).toLocaleDateString('en-US', { weekday: 'long' })
+      dayTotals[dayName] = (dayTotals[dayName] || 0) + (d.conversations || 0)
+    })
+    const bestDay = Object.entries(dayTotals).sort((a, b) => b[1] - a[1])[0]?.[0] || 'N/A'
+
+    const filteredTrends = {
+      thisWeek: secondHalfTotal,
+      lastWeek: firstHalfTotal,
+      weekOverWeekGrowth: periodGrowth,
+      peakHour: trends?.peakHour || 14,
+      bestDay,
     }
 
     return { 
       dailyActivity: filtered, 
-      summary: filteredSummary 
+      summary: filteredSummary,
+      trends: filteredTrends,
     }
-  }, [dateRange, dailyActivity, summary])
+  }, [dateRange, dailyActivity, summary, trends])
 
   const displaySummary = filteredData.summary
   const displayDailyActivity = filteredData.dailyActivity
+  const displayTrends = filteredData.trends
 
   return (
     <div className="dashboard">
@@ -230,24 +275,24 @@ function Dashboard({ data, dataSource, onUploadClick }) {
         </motion.div>
 
         {/* Trends Row */}
-        {trends && (
+        {displayTrends && (
           <motion.div className="trends-row" variants={itemVariants}>
             <div className="trend-card">
               <div className="trend-header">
-                <span className="trend-label">This Week</span>
-                <span className={`trend-badge ${trends.weekOverWeekGrowth >= 0 ? 'positive' : 'negative'}`}>
-                  {trends.weekOverWeekGrowth >= 0 ? '+' : ''}{trends.weekOverWeekGrowth}%
+                <span className="trend-label">Period Trend</span>
+                <span className={`trend-badge ${displayTrends.weekOverWeekGrowth >= 0 ? 'positive' : 'negative'}`}>
+                  {displayTrends.weekOverWeekGrowth >= 0 ? '+' : ''}{displayTrends.weekOverWeekGrowth}%
                 </span>
               </div>
-              <div className="trend-value">{trends.thisWeek}</div>
-              <div className="trend-compare">vs {trends.lastWeek} last week</div>
+              <div className="trend-value">{displayTrends.thisWeek}</div>
+              <div className="trend-compare">vs {displayTrends.lastWeek} prior period</div>
             </div>
             <div className="trend-card">
               <div className="trend-header">
                 <span className="trend-label">Peak Hour</span>
                 <Zap size={14} className="trend-icon" />
               </div>
-              <div className="trend-value">{trends.peakHour}:00</div>
+              <div className="trend-value">{displayTrends.peakHour}:00</div>
               <div className="trend-compare">Most productive time</div>
             </div>
             <div className="trend-card">
@@ -255,16 +300,16 @@ function Dashboard({ data, dataSource, onUploadClick }) {
                 <span className="trend-label">Best Day</span>
                 <Flame size={14} className="trend-icon" />
               </div>
-              <div className="trend-value">{trends.bestDay}</div>
+              <div className="trend-value">{displayTrends.bestDay}</div>
               <div className="trend-compare">Most active day</div>
             </div>
             <div className="trend-card">
               <div className="trend-header">
-                <span className="trend-label">Messages</span>
-                <MessageSquare size={14} className="trend-icon" />
+                <span className="trend-label">Active Days</span>
+                <Calendar size={14} className="trend-icon" />
               </div>
-              <div className="trend-value">{(displaySummary.totalMessages || 0).toLocaleString()}</div>
-              <div className="trend-compare">Total chat messages</div>
+              <div className="trend-value">{displaySummary.activeDays || 0}</div>
+              <div className="trend-compare">~{displaySummary.avgPerDay || 0} conv/day</div>
             </div>
           </motion.div>
         )}
