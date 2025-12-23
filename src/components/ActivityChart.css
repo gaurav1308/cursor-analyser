@@ -1,0 +1,98 @@
+.activity-chart {
+  width: 100%;
+}
+
+.activity-chart--empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 280px;
+}
+
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.75rem;
+  color: var(--text-muted);
+}
+
+.empty-state svg {
+  color: var(--neon-cyan);
+  opacity: 0.4;
+}
+
+.empty-state p {
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+}
+
+.empty-state span {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+.activity-tooltip {
+  background: rgba(10, 10, 18, 0.95);
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  padding: 1rem;
+  backdrop-filter: blur(10px);
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+}
+
+.tooltip-date {
+  font-family: var(--font-display);
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  letter-spacing: 0.1em;
+  margin-bottom: 0.75rem;
+  text-transform: uppercase;
+}
+
+.tooltip-stats {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.tooltip-stat {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1.5rem;
+}
+
+.tooltip-label {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+}
+
+.tooltip-value {
+  font-family: var(--font-display);
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.tooltip-stat.cyan .tooltip-value {
+  color: var(--neon-cyan);
+}
+
+.tooltip-stat.green .tooltip-value {
+  color: var(--neon-green);
+}
+
+.tooltip-stat.purple .tooltip-value {
+  color: var(--neon-purple);
+}
+
+/* Recharts overrides */
+.recharts-cartesian-grid-horizontal line,
+.recharts-cartesian-grid-vertical line {
+  stroke: rgba(255, 255, 255, 0.03);
+}
+
+.recharts-dot {
+  filter: drop-shadow(0 0 6px currentColor);
+}
+

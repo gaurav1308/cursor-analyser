@@ -1,0 +1,82 @@
+.insights-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.insight-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  padding: 0.875rem;
+  border-radius: 10px;
+  transition: all 0.2s ease;
+}
+
+.insight-item--positive {
+  background: linear-gradient(135deg, rgba(0, 255, 136, 0.08), rgba(0, 255, 136, 0.02));
+  border: 1px solid rgba(0, 255, 136, 0.15);
+}
+
+.insight-item--info {
+  background: linear-gradient(135deg, rgba(0, 245, 255, 0.08), rgba(0, 245, 255, 0.02));
+  border: 1px solid rgba(0, 245, 255, 0.15);
+}
+
+.insight-item--warning {
+  background: linear-gradient(135deg, rgba(255, 107, 0, 0.08), rgba(255, 107, 0, 0.02));
+  border: 1px solid rgba(255, 107, 0, 0.15);
+}
+
+.insight-icon {
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  flex-shrink: 0;
+}
+
+.insight-item--positive .insight-icon {
+  background: rgba(0, 255, 136, 0.15);
+  color: var(--neon-green);
+}
+
+.insight-item--info .insight-icon {
+  background: rgba(0, 245, 255, 0.15);
+  color: var(--neon-cyan);
+}
+
+.insight-item--warning .insight-icon {
+  background: rgba(255, 107, 0, 0.15);
+  color: var(--neon-orange);
+}
+
+.insight-message {
+  font-size: 0.8rem;
+  line-height: 1.5;
+  color: var(--text-secondary);
+  flex: 1;
+}
+
+.insights-cta {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.75rem;
+  margin-top: 0.5rem;
+  border-radius: 8px;
+  background: rgba(0, 245, 255, 0.05);
+  border: 1px dashed rgba(0, 245, 255, 0.2);
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  animation: pulse-glow 3s infinite;
+}
+
+.insights-cta svg {
+  color: var(--neon-cyan);
+  animation: float 2s ease-in-out infinite;
+}
+
